@@ -1,0 +1,10 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+media/audio/*
+media/tts/*
+!media/audio/.gitkeep
+!media/tts/.gitkeep
+app.log

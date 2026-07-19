@@ -1,0 +1,28 @@
+# Secrets -- never commit real credentials
+**/.env
+!**/.env.example
+
+# Python
+backend/__pycache__/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/.venv/
+backend/venv/
+backend/.pytest_cache/
+
+# Backend media (user-generated audio, recreated at runtime)
+backend/media/audio/*
+backend/media/tts/*
+!backend/media/audio/.gitkeep
+!backend/media/tts/.gitkeep
+
+# Node / Expo
+application/node_modules/
+application/.expo/
+application/dist/
+application/web-build/
+application/*.log
+application/npm-debug.*
+
+# OS
+.DS_Store

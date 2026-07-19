@@ -1,0 +1,56 @@
+flowchart TB
+    subgraph Client["Chronicle App (Expo Router / React Native)"]
+        UI_Dashboard["Dashboard"]
+        UI_Record["Active Recording"]
+        UI_Reflect["AI Reflection"]
+        UI_Chat["Live Conversation"]
+        UI_History["Journal History"]
+        AuthCtx["AuthContext (session + token storage)"]
+        ApiClient["lib/api.ts (typed fetch client)"]
+    end
+
+    subgraph API["FastAPI Backend"]
+        AuthRoute["/auth: register, login, me"]
+        JournalRoute["/journals: CRUD + /messages"]
+        AiRoute["/ai: transcribe, tts"]
+        JournalSvc["journal_service (orchestration)"]
+        AuthSvc["auth_service"]
+        ASR["ai/asr.py"]
+        Reflection["ai/reflection.py"]
+        Chat["ai/chat.py"]
+        TTS["ai/tts.py"]
+        Media["media/ (audio + tts files)"]
+    end
+
+    subgraph External["External AI Services"]
+        Whisper["HuggingFace Whisper (ASR)"]
+        HFTTs["HuggingFace TTS"]
+        Gemini["Google Gemini (reflection + chat)"]
+    end
+
+    DB[("MongoDB: users, journals, messages")]
+
+    UI_Record -->|record audio| ApiClient
+    UI_Dashboard --> ApiClient
+    UI_Reflect --> ApiClient
+    UI_Chat --> ApiClient
+    UI_History --> ApiClient
+    AuthCtx <-.token.-> ApiClient
+
+    ApiClient -->|HTTPS + JWT| AuthRoute
+    ApiClient -->|HTTPS + JWT| JournalRoute
+    ApiClient -->|HTTPS + JWT| AiRoute
+
+    AuthRoute --> AuthSvc --> DB
+    JournalRoute --> JournalSvc
+    AiRoute --> ASR
+    AiRoute --> TTS
+
+    JournalSvc --> ASR --> Whisper
+    JournalSvc --> Reflection --> Gemini
+    JournalSvc --> Media
+    JournalSvc --> DB
+    JournalRoute -->|chat turn| Chat --> Gemini
+    TTS --> HFTTs
+
+    Media -->|served at /media path| ApiClient
