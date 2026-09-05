@@ -218,13 +218,7 @@ export default function JournalHistoryScreen() {
             )}
 
             {/* ── FLOATING ACTION BUTTON (FAB) ── */}
-            <TouchableOpacity
-                style={styles.floatingActionButton}
-                onPress={() => router.push({ pathname: '/activeRecording', params: { mood: 'Calm' } })}
-                activeOpacity={0.85}
-            >
-                <Text style={styles.fabPlusSymbol}>+</Text>
-            </TouchableOpacity>
+            {/* Removed — mic icon already at top */}
 
             <BottomNav active="HISTORY" />
 
@@ -436,29 +430,5 @@ const styles = StyleSheet.create({
         color: GOLD,
         fontSize: 14,
         marginLeft: 2,
-    },
-
-    // Floating Action Button (FAB)
-    floatingActionButton: {
-        position: 'absolute',
-        bottom: 90,
-        right: 20,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: '#ffcc00',
-        alignItems: 'center',
-        justifyContent: 'center',
-        elevation: 6,
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-    },
-    fabPlusSymbol: {
-        color: '#000000',
-        fontSize: 28,
-        fontWeight: '300',
-        marginTop: -2,
     },
 });

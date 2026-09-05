@@ -3,7 +3,7 @@ import { useRouter, useSegments } from 'expo-router';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 
-import { authApi, setAuthToken, UserProfile } from '@/lib/api';
+import { ApiError, authApi, setAuthToken, UserProfile } from '@/lib/api';
 
 const TOKEN_KEY = 'chronicle_auth_token';
 
@@ -92,7 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (e) {
-      console.error('Failed to load token', e);
+      console.warn('Failed to load token', e);
     } finally {
       setIsLoading(false);
     }
@@ -104,7 +104,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(profile);
       return profile;
     } catch (e) {
-      console.error('Failed to fetch profile', e);
+      if (e instanceof ApiError && e.status === 401) {
+        console.warn('Session expired or invalid credentials when fetching profile.');
+      } else {
+        console.warn('Failed to fetch profile', e);
+      }
       return null;
     }
   };

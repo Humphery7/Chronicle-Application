@@ -16,17 +16,37 @@ class ReflectionError(Exception):
 
 
 def _extract_json(raw: str) -> dict:
-    """LLMs love to wrap JSON in markdown fences despite instructions not to.
-    Strip those defensively before parsing."""
+    """Extract JSON object from LLM output, handling code block fences and truncated JSON."""
     text = raw.strip()
-    fence_match = re.search(r"```(?:json)?\s*(\{.*\})\s*```", text, re.DOTALL)
-    if fence_match:
-        text = fence_match.group(1)
-    else:
-        brace_match = re.search(r"\{.*\}", text, re.DOTALL)
-        if brace_match:
-            text = brace_match.group(0)
-    return json.loads(text)
+    text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\s*```$", "", text)
+    
+    first_brace = text.find("{")
+    if first_brace != -1:
+        text = text[first_brace:]
+    
+    # Try standard parse or repair truncated JSON by appending closing syntax
+    for suffix in ["", '"]}', '"}]', ']}', '}']:
+        try:
+            return json.loads(text + suffix, strict=False)
+        except Exception:
+            pass
+
+    # Regex extraction fallback if JSON syntax is severely broken/truncated
+    title_match = re.search(r'"title"\s*:\s*"([^"]+)"', text)
+    body_matches = re.findall(r'"((?:[^"\\]|\\.)+)"', text)
+    
+    title = title_match.group(1) if title_match else "Your reflection"
+    body = [
+        m for m in body_matches 
+        if m not in ("title", "body", "highlight_word") and len(m) > 15
+    ]
+
+    return {
+        "title": title,
+        "body": body if body else ["Thanks for sharing your thoughts."],
+        "highlight_word": None,
+    }
 
 
 async def generate_reflection(transcript: str) -> dict:
@@ -44,19 +64,22 @@ async def generate_reflection(transcript: str) -> dict:
         result = await llm.ainvoke(messages)
         raw_text = result.content if hasattr(result, "content") else str(result)
         parsed = _extract_json(raw_text)
-    except json.JSONDecodeError:
-        logger.warning("Reflection response was not valid JSON; falling back to plain text")
+        body = parsed.get("body")
+        if isinstance(body, str):
+            body = [body]
+        elif not isinstance(body, list):
+            body = ["Thanks for sharing your thoughts."]
+
         return {
-            "title": "Your reflection",
-            "body": [raw_text.strip()] if raw_text else ["Thanks for sharing that with me."],
-            "highlight_word": None,
+            "title": parsed.get("title") or "Your reflection",
+            "body": body,
+            "highlight_word": parsed.get("highlight_word"),
         }
     except Exception as e:
-        logger.error(f"Reflection generation failed: {e}")
-        raise ReflectionError(f"Failed to generate AI reflection: {e}") from e
-
-    return {
-        "title": parsed.get("title") or "Your reflection",
-        "body": parsed.get("body") or [],
-        "highlight_word": parsed.get("highlight_word"),
-    }
+        logger.warning(f"Reflection generation fallback: {e}")
+        raw = raw_text.strip() if 'raw_text' in locals() and raw_text else ""
+        return {
+            "title": "Your reflection",
+            "body": [p.strip() for p in raw.split("\n\n") if p.strip()] if raw else ["Thanks for sharing your thoughts."],
+            "highlight_word": None,
+        }

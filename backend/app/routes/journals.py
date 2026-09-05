@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile, status
 
 from app.core.deps import get_current_user, user_object_id
 from app.models.journal import Mood
@@ -15,6 +15,7 @@ router = APIRouter()
 
 @router.post("", response_model=JournalOut, status_code=status.HTTP_201_CREATED)
 async def create_journal(
+    request: Request,
     file: UploadFile = File(..., description="Recorded audio (m4a/wav/mp3)"),
     mood: Mood = Form(Mood.calm),
     duration_seconds: float = Form(0.0),
@@ -23,7 +24,8 @@ async def create_journal(
     """Upload a voice recording; the server transcribes it, generates the
     first AI reflection, and returns the full journal entry in one call."""
     doc = await journal_service.create_journal_from_audio(
-        user_object_id(current_user), file, mood, duration_seconds
+        user_object_id(current_user), file, mood, duration_seconds,
+        asr_pipeline=request.app.state.asr_pipeline,
     )
     return journal_service.journal_to_response(doc)
 

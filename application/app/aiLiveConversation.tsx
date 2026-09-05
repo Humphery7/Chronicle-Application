@@ -107,6 +107,7 @@ export default function ReflectingTogetherScreen() {
     };
 
     const handleListen = async (message: Message) => {
+        if (speakingId) return;
         setSpeakingId(message._id);
         try {
             const { audio_url } = await aiApi.textToSpeech(message.content);

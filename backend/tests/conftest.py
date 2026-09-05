@@ -129,7 +129,7 @@ def client(monkeypatch, tmp_path):
     async def fake_reflection(transcript):
         return {"title": "Test Reflection", "body": ["Body A", "Body B"], "highlight_word": "testing"}
 
-    async def fake_transcribe(audio_bytes):
+    async def fake_transcribe(audio_bytes, *args, **kwargs):
         return {"text": "This is a fake transcript of my day.", "language": "en"}
 
     async def fake_chat_reply(transcript, history):

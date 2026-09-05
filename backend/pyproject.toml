@@ -1,0 +1,42 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [
+    {name = "Humphery",email = "faradayotuoniyo@gmail.com"},
+]
+dependencies = [
+    "fastapi==0.111.0",
+    "uvicorn[standard]==0.30.1",
+    "pymongo[srv]>=4.9.0",
+    "pydantic-settings==2.3.1",
+    "pydantic[email]==2.7.4",
+    "python-jose[cryptography]==3.3.0",
+    "passlib[bcrypt]==1.7.4",
+    "bcrypt==4.0.1",
+    "python-multipart==0.0.9",
+    "python-dotenv==1.0.1",
+    "google-auth==2.30.0",
+    "requests==2.32.3",
+    "huggingface-hub>=0.26.0",
+    "langchain-core>=0.3.0",
+    "langchain-google-genai>=2.0.0",
+    "transformers==4.49.0",
+    "torch==2.2.2",
+    "numpy<2",
+    "soundfile>=0.14.0",
+    "av>=18.1.0"
+]
+requires-python = "==3.12.*"
+readme = "README.md"
+license = {text = "MIT"}
+
+
+[tool.pdm]
+distribution = false
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]

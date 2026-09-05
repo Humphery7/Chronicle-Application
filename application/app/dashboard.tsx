@@ -44,9 +44,9 @@ function getGreeting(): string {
 
 function getGreetingEmoji(): string {
   const hour = new Date().getHours();
-  if (hour < 12) return '🌅';
-  if (hour < 17) return '☀️';
-  return '🌙';
+  if (hour < 12) return '☀';
+  if (hour < 17) return '☀';
+  return '☽';
 }
 
 function getUserName(user: any): string {
@@ -189,7 +189,7 @@ export default function DashboardScreen() {
               activeOpacity={0.8}
               onPress={() => router.push({ pathname: '/aiReflection', params: { id: entry._id } })}
             >
-              <View style={styles.entryRow}>
+               <View style={styles.entryRow}>
                 <Text style={styles.entryDate}>{formatEntryDate(entry.created_at)}</Text>
                 <View style={styles.entryRight}>
                   <View style={[styles.entryTag, { backgroundColor: MOOD_TAG_COLOR[entry.mood] }]}>
@@ -283,7 +283,6 @@ const styles = StyleSheet.create({
 
   heroText: {
     fontSize: 40,
-    fontStyle: 'italic',
     fontWeight: '300',
     color: '#ffffff',
     lineHeight: 50,
@@ -292,6 +291,8 @@ const styles = StyleSheet.create({
 
   heroMoon: {
     color: GOLD,
+    fontSize: 28,
+    fontStyle: 'normal',
   },
 
   heroSub: {

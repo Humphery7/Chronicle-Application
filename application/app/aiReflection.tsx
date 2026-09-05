@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useAudioPlayer } from 'expo-audio';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { ApiError, Journal, aiApi, journalsApi, mediaUrl } from '@/lib/api';
 import BottomNav from '@/components/chronicle/BottomNav';
 
@@ -45,6 +45,43 @@ function ReflectionParagraph({ text, highlight }: { text: string; highlight?: st
   );
 }
 
+function resolveReflection(rawReflection?: Journal['reflection']): Journal['reflection'] {
+  if (!rawReflection) return null;
+
+  let title = rawReflection.title || 'Your reflection';
+  let body: string[] = Array.isArray(rawReflection.body) ? [...rawReflection.body] : [];
+  let highlight_word = rawReflection.highlight_word || null;
+
+  const firstBodyItem = body[0] || '';
+
+  if (firstBodyItem.includes('{') && (firstBodyItem.includes('"title"') || firstBodyItem.includes('"body"'))) {
+    const jsonStart = firstBodyItem.indexOf('{');
+    const jsonStr = firstBodyItem.slice(jsonStart);
+
+    let parsed: any = null;
+    for (const suffix of ['', '"]}', '"}]', ']}', '}']) {
+      try {
+        parsed = JSON.parse(jsonStr + suffix);
+        if (parsed && typeof parsed === 'object') break;
+      } catch {}
+    }
+
+    if (parsed) {
+      if (parsed.title) title = String(parsed.title);
+      if (Array.isArray(parsed.body)) {
+        body = parsed.body.map((b: any) => String(b).trim()).filter(Boolean);
+      }
+      if (parsed.highlight_word) highlight_word = String(parsed.highlight_word);
+    }
+  }
+
+  return {
+    title: title || 'Your reflection',
+    body: body.length > 0 ? body : ['Thanks for sharing your thoughts with Chronicle.'],
+    highlight_word,
+  };
+}
+
 export default function EntryReflectionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [journal, setJournal] = useState<Journal | null>(null);
@@ -53,6 +90,9 @@ export default function EntryReflectionScreen() {
   const [speaking, setSpeaking] = useState(false);
 
   const player = useAudioPlayer(null);
+
+  const recordingPlayer = useAudioPlayer(null);
+  const recordingPlayerStatus = useAudioPlayerStatus(recordingPlayer);
 
   const loadJournal = useCallback(async () => {
     if (!id) return;
@@ -71,11 +111,30 @@ export default function EntryReflectionScreen() {
     loadJournal();
   }, [loadJournal]);
 
+  const reflection = resolveReflection(journal?.reflection);
+
+  const handlePlayOriginal = async () => {
+    if (!journal?.audio_url) return;
+    try {
+      const uri = mediaUrl(journal.audio_url);
+      if (uri) {
+        if (recordingPlayerStatus.playing) {
+          recordingPlayer.pause();
+        } else {
+          recordingPlayer.replace({ uri });
+          recordingPlayer.play();
+        }
+      }
+    } catch {
+      Alert.alert('Playback unavailable', 'Could not play your recording.');
+    }
+  };
+
   const handleListen = async () => {
-    if (!journal?.reflection) return;
+    if (!reflection) return;
     setSpeaking(true);
     try {
-      const text = [journal.reflection.title, ...journal.reflection.body].join('. ');
+      const text = [reflection.title, ...reflection.body].join('. ');
       const { audio_url } = await aiApi.textToSpeech(text);
       const uri = mediaUrl(audio_url);
       if (uri) {
@@ -87,6 +146,32 @@ export default function EntryReflectionScreen() {
     } finally {
       setSpeaking(false);
     }
+  };
+
+  const handleDeleteEntry = () => {
+    if (!journal) return;
+    Alert.alert(
+      'Delete this entry?',
+      'This will permanently remove your recording, transcript, and conversation. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await journalsApi.remove(journal._id);
+              router.replace('/jornalHistory');
+            } catch (e) {
+              Alert.alert(
+                'Could not delete',
+                e instanceof ApiError ? e.message : 'Please try again.'
+              );
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (loading) {
@@ -111,8 +196,6 @@ export default function EntryReflectionScreen() {
       </SafeAreaView>
     );
   }
-
-  const reflection = journal.reflection;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -145,6 +228,24 @@ export default function EntryReflectionScreen() {
             <Text style={styles.quoteText}>&ldquo;{journal.transcript}&rdquo;</Text>
           </View>
         </View>
+
+        {/* ── PLAY ORIGINAL RECORDING BUTTON ── */}
+        {journal.audio_url ? (
+          <View style={styles.playOriginalRow}>
+            <TouchableOpacity
+              style={styles.playOriginalButton}
+              activeOpacity={0.8}
+              onPress={handlePlayOriginal}
+            >
+              <Text style={styles.playOriginalIcon}>
+                {recordingPlayerStatus.playing ? '⏸' : '▶'}
+              </Text>
+              <Text style={styles.playOriginalText}>
+                {recordingPlayerStatus.playing ? 'Pause' : 'Play'} Recording
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         {/* ── SECTION DIVIDER ── */}
         <View style={styles.dividerRow}>
@@ -202,6 +303,10 @@ export default function EntryReflectionScreen() {
 
           <TouchableOpacity style={styles.refreshButton} activeOpacity={0.8} onPress={loadJournal}>
             <Text style={styles.refreshIcon}>⟳</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.deleteButton} activeOpacity={0.8} onPress={handleDeleteEntry}>
+            <Text style={styles.deleteText}>Delete</Text>
           </TouchableOpacity>
         </View>
 
@@ -349,6 +454,33 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 
+  // Play Original Recording Styles
+  playOriginalRow: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  playOriginalButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#222235',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 25,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#353550',
+  },
+  playOriginalIcon: {
+    fontSize: 14,
+    color: '#fff',
+  },
+  playOriginalText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+
   // Divider Styles
   dividerRow: {
     flexDirection: 'row',
@@ -455,6 +587,21 @@ const styles = StyleSheet.create({
   refreshIcon: {
     color: '#fff',
     fontSize: 20,
+  },
+  deleteButton: {
+    width: 60,
+    backgroundColor: '#17172b',
+    borderWidth: 1,
+    borderColor: '#26263c',
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteText: {
+    color: '#ff7675',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
   },
   continueLink: {
     alignItems: 'center',

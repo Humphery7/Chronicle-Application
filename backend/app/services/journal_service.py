@@ -20,7 +20,7 @@ def _not_found() -> HTTPException:
 
 
 async def create_journal_from_audio(
-    user_id: ObjectId, file: UploadFile, mood: Mood, duration_seconds: float = 0.0
+    user_id: ObjectId, file: UploadFile, mood: Mood, duration_seconds: float = 0.0, asr_pipeline=None
 ) -> dict:
     """End-to-end: validate + persist the audio, transcribe it, generate the
     first AI reflection, and store everything as one journal document with
@@ -61,7 +61,7 @@ async def create_journal_from_audio(
     }
 
     try:
-        transcription = await transcribe_audio(audio_bytes)
+        transcription = await transcribe_audio(audio_bytes, asr_pipeline)
         transcript = transcription["text"]
         update["transcript"] = transcript
         update["title"] = _derive_title(transcript)
@@ -70,12 +70,15 @@ async def create_journal_from_audio(
         update["reflection"] = reflection
         update["status"] = JournalStatus.ready.value
 
+        body_text = "\n\n".join(reflection.get("body") or [])
+        content = body_text if body_text else reflection.get("title", "")
+
         await db.messages.insert_one(
             {
                 "journal_id": journal_id,
                 "user_id": user_id,
                 "role": MessageRole.assistant.value,
-                "content": "\n\n".join(reflection.get("body") or []) or reflection.get("title", ""),
+                "content": content,
                 "created_at": datetime.now(timezone.utc),
             }
         )

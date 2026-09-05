@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     LLM_API_KEY: str = ""
     LLM_MODEL: str = "gemini-2.0-flash"
     LLM_TEMPERATURE: float = 0.7
-    LLM_MAX_TOKENS: int = 600
+    LLM_MAX_TOKENS: int = 1024
     CONVERSATION_HISTORY_SIZE: int = 12
 
     # --- Media / uploads ---

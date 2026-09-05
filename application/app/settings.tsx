@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Alert, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/auth-context';
 import { API_URL } from '@/lib/api';
 
@@ -11,6 +12,7 @@ const CARD_BG = '#17172a';
 export default function SettingsScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -21,33 +23,36 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.closeIcon}>✕</Text>
+      <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={styles.closeIcon}>✕</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Settings</Text>
+          <View style={{ width: 24 }} />
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.label}>SIGNED IN AS</Text>
+          <Text style={styles.email}>{user?.email ?? '—'}</Text>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.label}>BACKEND</Text>
+          <Text style={styles.value}>{API_URL}</Text>
+        </View>
+
+        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+          <Text style={styles.signOutText}>SIGN OUT</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
-        <View style={{ width: 24 }} />
       </View>
-
-      <View style={styles.card}>
-        <Text style={styles.label}>SIGNED IN AS</Text>
-        <Text style={styles.email}>{user?.email ?? '—'}</Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.label}>BACKEND</Text>
-        <Text style={styles.value}>{API_URL}</Text>
-      </View>
-
-      <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-        <Text style={styles.signOutText}>SIGN OUT</Text>
-      </TouchableOpacity>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: PAGE_BG, padding: 20 },
+  safeArea: { flex: 1, backgroundColor: PAGE_BG },
+  container: { flex: 1, paddingHorizontal: 20 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -11,20 +11,6 @@ import {
 export default function HomeScreen() {
   const router = useRouter();
 
-  // useEffect(() => {
-  //   // This only works on Android and only with certain builds.
-  //   // We safe-load it here so it doesn't crash the whole app if missing.
-  //   if (Platform.OS === 'android') {
-  //     try {
-  //       const NavigationBar = require('expo-navigation-bar');
-  //       NavigationBar.setBehaviorAsync('overlay-swipe');
-  //       NavigationBar.setVisibilityAsync('hidden');
-  //     } catch (e) {
-  //       // Just ignore if the module isn't available in Expo Go
-  //     }
-  //   }
-  // }, []);
-
   return (
     <View style={styles.page}>
       <StatusBar barStyle="light-content" />
@@ -207,38 +193,3 @@ const styles = StyleSheet.create({
   },
 
 });
-
-
-// import { useRouter} from 'expo-router'
-// import React from 'react'
-
-// import {
-//   StatusBar,
-//   StyleSheet,
-//   Text,
-//   TouchableOpacity,
-//   View
-// } from 'react-native'
-
-
-// export default function homeScreen() {
-//   const router = useRouter();
-
-//   return{
-//     <View style={styles.page}>
-//     <StatusBar barStyle="light-content"/>
-//     <View style={styles.logobox}></View>
-//     }
-//   }
-
-// }
-
-// const styles = StyleSheet.create({
-//   page:{
-//     flex:1,
-//     backgroundColor: '#0f0f1c',
-//     alignItems: 'center',
-// justifyContent: 'center',
-// paddingHorizontal: 36
-//   }
-// })

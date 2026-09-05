@@ -12,6 +12,8 @@ from app.db.mongodb import close_mongo_connection, connect_to_mongo
 from app.routes import ai, auth, health, journals
 from app.services.ai.client import reset_clients
 from app.services.media import MEDIA_ROOT
+from transformers import pipeline
+import torch
 
 logging.basicConfig(
     level=logging.DEBUG if settings.DEBUG else logging.INFO,
@@ -33,8 +35,32 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             f"AI features are disabled -- missing env vars: {', '.join(missing)}. "
             "Set them in backend/.env to enable transcription, reflection and chat."
         )
+
+    device = 0 if torch.cuda.is_available() else -1
+    logger.info(f"Loading ASR model: {settings.WHISPER_MODEL}")
+    app.state.asr_pipeline = pipeline(
+        "automatic-speech-recognition",
+        model=settings.WHISPER_MODEL,
+        device=device,
+        token=settings.HUGGINGFACE_API_KEY or None,
+    )
+    logger.info("ASR model loaded successfully")
+
+    logger.info(f"Loading TTS model: {settings.TTS_MODEL}")
+    app.state.tts_pipeline = pipeline(
+        "text-to-speech",
+        model=settings.TTS_MODEL,
+        device=device,
+        token=settings.HUGGINGFACE_API_KEY or None,
+    )
+    logger.info("TTS model loaded successfully")
     yield
+
     await close_mongo_connection()
+    if hasattr(app.state, "asr_pipeline"):
+        del app.state.asr_pipeline
+    if hasattr(app.state, "tts_pipeline"):
+        del app.state.tts_pipeline
     reset_clients()
 
 

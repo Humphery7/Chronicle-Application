@@ -16,6 +16,8 @@ import {
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
   RecordingPresets,
+  useAudioPlayer,
+  useAudioPlayerStatus,
 } from 'expo-audio';
 import { ApiError, journalsApi, Mood } from '@/lib/api';
 
@@ -32,6 +34,18 @@ export default function ActiveRecordingScreen() {
   const state = useAudioRecorderState(recorder, 100);
   const stoppedRef = useRef(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isReviewMode, setIsReviewMode] = useState(false);
+  const [recordingUri, setRecordingUri] = useState<string | null>(null);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+
+  const player = useAudioPlayer(recordingUri ? { uri: recordingUri } : null);
+  const playerStatus = useAudioPlayerStatus(player);
+
+  useEffect(() => {
+    if (recordingUri) {
+      player.source = { uri: recordingUri };
+    }
+  }, [recordingUri]);
 
   useEffect(() => {
     initRecording();
@@ -82,21 +96,47 @@ export default function ActiveRecordingScreen() {
       return;
     }
 
+    setRecordingUri(uri);
+    setRecordingDuration(durationMillis);
+    setIsReviewMode(true);
+  }
+
+  async function handleUseRecording() {
+    if (!recordingUri) return;
+
     setIsProcessing(true);
+
     try {
       const journal = await journalsApi.createFromRecording({
-        uri,
+        uri: recordingUri,
         mood,
-        durationSeconds: durationMillis / 1000,
+        durationSeconds: recordingDuration / 1000,
       });
-      router.replace({ pathname: '/aiReflection', params: { id: journal._id } });
+
+      router.replace({
+        pathname: '/aiReflection',
+        params: { id: journal._id },
+      });
     } catch (e) {
       const message =
-        e instanceof ApiError ? e.message : 'Failed to process your recording. Please try again.';
+        e instanceof ApiError
+          ? e.message
+          : 'Failed to process your recording. Please try again.';
+
       Alert.alert('Something went wrong', message);
       setIsProcessing(false);
-      router.back();
     }
+  }
+
+  async function handleRerecord() {
+    stoppedRef.current = false;
+
+    setRecordingUri(null);
+    setRecordingDuration(0);
+    setIsReviewMode(false);
+
+    await recorder.prepareToRecordAsync();
+    recorder.record();
   }
 
   async function handleClose() {
@@ -132,6 +172,50 @@ export default function ActiveRecordingScreen() {
           <Text style={styles.processingSubtitle}>
             Transcribing your entry and preparing a reflection
           </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (isReviewMode) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+
+          <View style={styles.centerContainer}>
+            <Text style={styles.statusText}>Recording Complete</Text>
+
+            <Text style={styles.timerText}>
+              {formatTime(recordingDuration)}
+            </Text>
+
+            <View style={styles.reviewActions}>
+              <TouchableOpacity
+                style={styles.reviewButton}
+                onPress={() => {
+                  if (playerStatus.playing) {
+                    player.pause();
+                  } else {
+                    player.play();
+                  }
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.reviewButtonText}>
+                  {playerStatus.playing ? '⏸ Pause' : '▶ Play'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.reviewButton} onPress={handleRerecord} activeOpacity={0.8}>
+                <Text style={styles.reviewButtonText}>↻ Re-record</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.useButton} onPress={handleUseRecording} activeOpacity={0.8}>
+                <Text style={styles.useButtonText}>Use Recording →</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
         </View>
       </SafeAreaView>
     );
@@ -349,5 +433,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: 2,
+  },
+  reviewActions: {
+    width: '100%',
+    gap: 16,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  reviewButton: {
+    backgroundColor: BUTTON_BG,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    maxWidth: 280,
+  },
+  reviewButtonText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  useButton: {
+    backgroundColor: GOLD,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    maxWidth: 280,
+  },
+  useButtonText: {
+    color: '#0f0f1c',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
