@@ -8,3 +8,4 @@ media/tts/*
 !media/audio/.gitkeep
 !media/tts/.gitkeep
 app.log
+.pdm-python
