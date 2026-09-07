@@ -116,9 +116,9 @@ async def generate_reflection(transcript: str) -> dict:
     try:
         result = await llm.ainvoke(messages)
         raw_text = result.content if hasattr(result, "content") else str(result)
-        logger.info(f"Result: {result}")
-        logger.info(f"Response metadata: {getattr(result, 'response_metadata', None)}")
-        logger.info(f"Usage metadata: {getattr(result, 'usage_metadata', None)}")
+        # logger.info(f"Result: {result}")
+        # logger.info(f"Response metadata: {getattr(result, 'response_metadata', None)}")
+        # logger.info(f"Usage metadata: {getattr(result, 'usage_metadata', None)}")
     except Exception as e:
         logger.error(f"Reflection generation failed: {e}")
         raise ReflectionError(f"Failed to generate a reflection: {e}") from e
