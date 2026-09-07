@@ -63,10 +63,12 @@ async def create_journal_from_audio(
     try:
         transcription = await transcribe_audio(audio_bytes, asr_pipeline)
         transcript = transcription["text"]
+        # logger.info(f"Transcription: {transcript}")
         update["transcript"] = transcript
         update["title"] = _derive_title(transcript)
 
         reflection = await generate_reflection(transcript)
+        # logger.info(f"Reflection: {reflection}")
         update["reflection"] = reflection
         update["status"] = JournalStatus.ready.value
 

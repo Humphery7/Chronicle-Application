@@ -26,3 +26,5 @@ application/npm-debug.*
 
 # OS
 .DS_Store
+*.key
+*.key.pub
