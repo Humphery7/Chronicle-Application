@@ -181,7 +181,281 @@ with Expo Go on a physical device.
 |---|---|
 | Web / iOS simulator | `http://localhost:8000/api/v1` |
 | Android emulator | `http://10.0.2.2:8000/api/v1` |
-| Physical device | `http://<your-computer's-LAN-IP>:8000/api/v1` |
+| Physical device | `http://<your-server's-public-IP>:8000/api/v1` |
+
+---
+
+## Production Deployment (Oracle Cloud)
+
+This guide covers deploying the Chronicle backend to a production server. The instructions
+are written for Oracle Cloud's Free Tier (Always Free) but can be adapted to any Linux VPS.
+
+### Server Requirements
+
+| Resource | Specification |
+|---|---|
+| Provider | Oracle Cloud Free Tier / Always Free (or any VPS) |
+| Shape | VM.Standard.A1.Flex (ARM64) or equivalent |
+| OCPUs | 2 (minimum for AI model inference) |
+| RAM | 12 GB (minimum for Whisper + TTS models) |
+| Storage | 200 GB block storage (Always Free allowance) |
+| OS | Oracle Linux 9 (or Ubuntu 22.04+) |
+
+### 1. Oracle Cloud Console Setup
+
+1. **Create a compartment** for resource organization
+2. **Create a VCN** (Virtual Cloud Network) with a public subnet
+3. **Configure Security List** — open the following ports:
+   - TCP 22 (SSH)
+   - TCP 8000 (FastAPI)
+4. **Create the instance:**
+   - Image: Oracle-Linux-9.x (or your preferred distro)
+   - Shape: VM.Standard.A1.Flex (2 OCPU, 12 GB RAM)
+   - Boot volume: ~50 GB (within free tier limits)
+   - SSH key: upload your public key (`.pub` file)
+5. **Note the public IP address** assigned to the instance
+
+![Oracle Cloud Instance Configuration](assets/images/oracle_cloud.png)
+
+### 2. Initial Server Setup
+
+SSH into your instance using the `opc` user (default for Oracle Linux):
+
+```bash
+ssh -i /path/to/your/private-key.pem opc@<your-server-public-ip>
+```
+
+Update the system and install essential packages:
+
+```bash
+sudo dnf update -y
+sudo dnf install -y git python3.12 python3.12-devel python3.12-pip
+```
+
+### 3. Python Setup
+
+Chronicle requires Python 3.12+ for optimal AI model support. Create a virtual environment
+with the newer Python version:
+
+```bash
+# Verify Python version
+python3.12 --version
+
+# Navigate to the application directory
+cd ~/Chronicle-Application/backend
+
+# Create virtual environment with Python 3.12
+python3.12 -m venv .venv
+
+# Activate the virtual environment
+source .venv/bin/activate
+
+# Install dependencies
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### 4. FFmpeg Installation
+
+Oracle Linux repositories may not include FFmpeg. Install it manually:
+
+```bash
+# Download static FFmpeg build for ARM64 (or x86_64 if using Intel)
+cd /tmp
+curl -LO https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linuxarm64-gpl.tar.xz
+tar -xf ffmpeg-master-latest-linuxarm64-gpl.tar.xz
+sudo cp ffmpeg-master-latest-linuxarm64-gpl/bin/ffmpeg /usr/local/bin/
+sudo cp ffmpeg-master-latest-linuxarm64-gpl/bin/ffprobe /usr/local/bin/
+rm -rf ffmpeg-master-latest-linuxarm64-gpl*
+
+# Verify installation
+ffmpeg -version
+ffprobe -version
+```
+
+### 5. Environment Configuration
+
+On your local machine, ensure your SSH key is in the repository root:
+
+```bash
+# Your SSH key for Oracle Cloud
+ls *.key *.pem 2>/dev/null || ls ~/.ssh/id_* 2>/dev/null
+```
+
+Clone/pull the repository on the server:
+
+```bash
+cd ~/Chronicle-Application
+git pull origin main
+```
+
+Create the `.env` file with production values:
+
+```bash
+cd ~/Chronicle-Application/backend
+nano .env
+```
+
+Required variables:
+```
+MONGODB_URL=mongodb+srv://<user>:<password>@<cluster>/chronicle
+JWT_SECRET_KEY=<generate-with-openssl-rand-hex-32>
+HUGGINGFACE_API_KEY=your-huggingface-token
+LLM_API_KEY=your-gemini-api-key
+CORS_ORIGINS=https://your-frontend-domain.com,http://localhost:3000
+```
+
+### 6. Firewall Configuration
+
+Open port 8000 in the server firewall:
+
+```bash
+sudo firewall-cmd --permanent --add-port=8000/tcp
+sudo firewall-cmd --reload
+
+# Verify
+sudo firewall-cmd --list-ports
+```
+
+### 7. Systemd Service Setup
+
+Create a systemd service for automatic startup and crash recovery:
+
+```bash
+sudo nano /etc/systemd/system/chronicle.service
+```
+
+Paste the following configuration:
+
+```ini
+[Unit]
+Description=Chronicle FastAPI Backend
+After=network.target
+
+[Service]
+User=opc
+Group=opc
+WorkingDirectory=/home/opc/Chronicle-Application/backend
+EnvironmentFile=/home/opc/Chronicle-Application/backend/.env
+ExecStart=/home/opc/Chronicle-Application/backend/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start the service:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable chronicle
+sudo systemctl start chronicle
+
+# Check status
+sudo systemctl status chronicle
+```
+
+### 8. SELinux Considerations (Oracle Linux)
+
+If running with SELinux Enforcing, you may need to set the correct security context:
+
+```bash
+# Allow systemd to execute binaries in the virtual environment
+sudo chcon -R -t bin_t /home/opc/Chronicle-Application/backend/.venv
+
+# Set context for .env file
+sudo chcon -t etc_t /home/opc/Chronicle-Application/backend/.env
+```
+
+### 9. Managing the Service
+
+```bash
+# Check status
+sudo systemctl status chronicle
+
+# View logs (follow mode)
+sudo journalctl -u chronicle -f
+
+# View last 100 lines
+sudo journalctl -u chronicle -n 100 --no-pager
+
+# Restart (after code updates)
+sudo systemctl restart chronicle
+
+# Stop / Start
+sudo systemctl stop chronicle
+sudo systemctl start chronicle
+```
+
+### 10. Git-Based Deployment Workflow
+
+**Local development machine:**
+
+```bash
+# After making changes
+git add .
+git commit -m "Description of changes"
+git push origin main
+```
+
+**On the server:**
+
+```bash
+cd ~/Chronicle-Application
+git pull origin main
+
+# If Python dependencies changed
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Restart the service
+sudo systemctl restart chronicle
+```
+
+### 11. Updating the Frontend API URL
+
+After deployment, update your app's environment to point to the production server:
+
+```bash
+# In application/.env
+EXPO_PUBLIC_API_URL=http://<your-server-public-ip>:8000/api/v1
+```
+
+For production, consider:
+- Using HTTPS with a reverse proxy (nginx + certbot)
+- Pointing a domain name to your server
+- Updating `CORS_ORIGINS` to match your frontend domain
+
+### 12. Troubleshooting
+
+**Service won't start:**
+```bash
+# Check logs
+sudo journalctl -u chronicle -n 50 --no-pager
+
+# Verify .env exists and has correct permissions
+ls -la /home/opc/Chronicle-Application/backend/.env
+```
+
+**Model inference errors:**
+```bash
+# Verify venv Python packages
+source .venv/bin/activate
+pip list | grep -E "torch|transformers|huggingface"
+
+# Test FFmpeg
+ffmpeg -version
+```
+
+**Port 8000 not accessible:**
+```bash
+# Check if FastAPI is listening
+sudo netstat -tlnp | grep 8000
+
+# Check firewall
+sudo firewall-cmd --list-all
+```
 
 ---
 
