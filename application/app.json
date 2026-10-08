@@ -42,7 +42,15 @@
       "expo-web-browser",
       "expo-audio",
       "expo-secure-store",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
