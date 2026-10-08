@@ -8,7 +8,7 @@ it, reflects back on it with a CBT-informed AI companion, and lets you keep talk
 - **Backend:** FastAPI (Python), MongoDB
 - **AI:** Whisper (speech-to-text) + Gemini (reflection & chat) + HuggingFace TTS
 
-<small>[Download](https://drive.google.com/file/d/1m6NMnrnU_mSV9crRu1xy6QegU9NSzWRe/view?usp=sharing)</small>
+<small><u>[Download the Apk](https://drive.google.com/file/d/1m6NMnrnU_mSV9crRu1xy6QegU9NSzWRe/view?usp=sharing)</u></small>
 ---
 
 ## How it works
